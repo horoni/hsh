@@ -30,17 +30,10 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-char input[1024];
-int last_status = 0;
-int argc =0;
-const char *builtins_str[] = {
-  "echo",
-  "type",
-  "exit",
-  "pwd",
-  "cd",
+struct Command {
+  const char *name;
+  void (*func)(char**);
 };
-
 
 static char **parse_args(int *size);
 static int find_in_path(const char *needle, char *out, size_t n);
@@ -50,14 +43,19 @@ static void exit_comm(char **args);
 static void echo_comm(char **args);
 static void type_comm(char **args);
 static void  pwd_comm(char **args);
-static void cd_comm(char **args);
-void (*builtins_fn[])(char**) = {
-  echo_comm,
-  type_comm,
-  exit_comm,
-  pwd_comm,
-  cd_comm,
+static void   cd_comm(char **args);
+
+struct Command comms[] = {
+  {.name = "echo", .func = echo_comm},
+  {.name = "type", .func = type_comm},
+  {.name = "exit", .func = exit_comm},
+  {.name = "pwd",  .func = pwd_comm },
+  {.name = "cd",   .func = cd_comm  },
 };
+
+char input[1024];
+int last_status = 0;
+int argc =0;
 
 int main(void) {
   char **args;
@@ -77,6 +75,12 @@ int main(void) {
   return 0;
 }
 
+char *strdup_(char *str) {
+  char *new = malloc(strlen(str)+1);
+  strcpy(new, str);
+  return new;
+}
+
 static void exit_comm(char **args) {
   if (argc >1) {
     int exi = atoi(args[1]);
@@ -90,8 +94,8 @@ static void echo_comm(char **args) {
 }
 static void type_comm(char **args) {
   char finded[1024];
-  for (int i = 0; i < sizeof(builtins_str)/sizeof(void *); i++) {
-    if (!strcmp(builtins_str[i], args[1])) {
+  for (int i = 0; i < sizeof(comms)/sizeof(struct Command); i++) {
+    if (!strcmp(comms[i].name, args[1])) {
       printf("%s is a shell builtin\n", args[1]);
       return;
     }
@@ -121,9 +125,9 @@ static void cd_comm(char **args) {
 }
 
 static int exec_builtins(char **args) {
-  for (int i = 0; i < sizeof(builtins_str)/sizeof(void *); i++) {
-    if (!strcmp(args[0], builtins_str[i])) {
-      builtins_fn[i](args);
+  for (int i = 0; i < sizeof(comms)/sizeof(struct Command); i++) {
+    if (!strcmp(args[0], comms[i].name)) {
+      comms[i].func(args);
       return 0;
     }
   }
@@ -147,7 +151,7 @@ static int try_exec_ext(char **args) {
 }
 
 static char **parse_args(int *size) {
-  char *inp = strdup(input);
+  char *inp = (char*)strdup_(input);
   char **args = malloc(32 * sizeof(char *));
   char *arg = strtok(inp, " ");
   int idx = 0;
@@ -163,7 +167,7 @@ static char **parse_args(int *size) {
 
 static int find_in_path(const char *needle, char *out, size_t n) {
   char path_to_check[1024] = {0};
-  char *path = strdup(getenv("PATH"));
+  char *path = (char*)strdup_(getenv("PATH"));
   if (path != NULL) {
     char *dir = strtok(path, ":");
     while (dir != NULL) {
