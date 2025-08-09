@@ -22,8 +22,6 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-// TODO: Fix memory leak in `parse_args()` - `strdup()`
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,6 +39,8 @@ struct Command {
   const char *name;
   void (*func)(shell_ctx *);
 };
+
+static void   free_argv    (shell_ctx *);
 
 static int    find_in_path (const char *needle, char *out, size_t n);
 static char **parse_args   (shell_ctx *);
@@ -78,12 +78,17 @@ int main(void)
     if (try_exec_ext(&ctx))
       printf("%s: command not found\n", ctx.input);
   end_cyc:
-    free(ctx.argv);
+    free_argv(&ctx);
   }
   return 0;
 error:
   (void)puts("fgets: error reading from stdin...\n");
   return 1;
+}
+
+static void free_argv(shell_ctx *ctx) {
+  free(ctx->argv[31]);
+  free(ctx->argv);
 }
 
 static char *strdup_(const char *str)
@@ -105,7 +110,7 @@ static void exit_comm(shell_ctx *ctx)
   int exit_code = 0;
   if (ctx->argc > 1)
     exit_code = atoi(ctx->argv[1]);
-  free(ctx->argv);
+  free_argv(ctx);
   exit(exit_code);
 }
 
@@ -188,7 +193,7 @@ static int try_exec_ext(shell_ctx *ctx)
 }
 
 /**
- * Returns pointer to argv
+ * If success returns pointer to argv
  */
 static char **parse_args(shell_ctx *ctx)
 {
@@ -200,11 +205,15 @@ static char **parse_args(shell_ctx *ctx)
   if (!args)
     goto end;
 
-  while (arg != NULL) {
+  while (arg != NULL && idx < 31) {
     args[idx++] = arg;
     arg = strtok(NULL, " ");
   }
+
   ctx->argc = idx;
+  ctx->argv = args;
+  args[31] = inp;
+
 end:
   return args;
 }
@@ -213,7 +222,7 @@ static int find_in_path(const char *needle, char *out, size_t n)
 {
   char path_to_check[1024] = {0};
   char *path = (char*)strdup_(getenv("PATH"));
-  char *dir = NULL;
+  const char *dir = NULL;
   int need_size = 0;
 
   if (!path)
