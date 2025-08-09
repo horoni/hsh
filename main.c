@@ -30,20 +30,27 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
+typedef struct {
+  char **argv;
+  int    argc;
+  char   input[1024];
+  int    last_status;
+} shell_ctx;
+
 struct Command {
   const char *name;
-  void (*func)(char**);
+  void (*func)(shell_ctx *);
 };
 
-static char **parse_args(int *size);
-static int find_in_path(const char *needle, char *out, size_t n);
-static int exec_builtins(char **args);
-static int try_exec_ext(char **args);
-static void exit_comm(char **args);
-static void echo_comm(char **args);
-static void type_comm(char **args);
-static void  pwd_comm(char **args);
-static void   cd_comm(char **args);
+static int    find_in_path (const char *needle, char *out, size_t n);
+static char **parse_args   (shell_ctx *);
+static int    exec_builtins(shell_ctx *);
+static int    try_exec_ext (shell_ctx *);
+static void   exit_comm    (shell_ctx *);
+static void   echo_comm    (shell_ctx *);
+static void   type_comm    (shell_ctx *);
+static void   pwd_comm     (shell_ctx *);
+static void   cd_comm      (shell_ctx *);
 
 struct Command comms[] = {
   {.name = "echo", .func = echo_comm},
@@ -53,140 +60,177 @@ struct Command comms[] = {
   {.name = "cd",   .func = cd_comm  },
 };
 
-char input[1024];
-int last_status = 0;
-int argc =0;
-
-int main(void) {
-  char **args;
+int main(void)
+{
+  shell_ctx ctx;
   // Flush after every printf
   setbuf(stdout, NULL);
 
   while(1) {
     printf("$ ");
-    fgets(input, 1024, stdin);
-    input[strlen(input)-1] = '\0';
-    args = parse_args(&argc);
-    if (argc == 0) continue;
-    if (try_exec_ext(args))
-      printf("%s: command not found\n", input);
-    free(args);
+    fgets(ctx.input, 1024, stdin);
+    ctx.input[strlen(ctx.input)-1] = '\0';
+    ctx.argv = parse_args(&ctx);
+    if (ctx.argc == 0)
+      continue;
+    if (try_exec_ext(&ctx))
+      printf("%s: command not found\n", ctx.input);
+    free(ctx.argv);
   }
   return 0;
 }
 
-char *strdup_(char *str) {
-  char *new = malloc(strlen(str)+1);
+char *strdup_(char *str)
+{
+  char *new = NULL;
+
+  if (!str)
+    goto fail;
+  new = malloc(strlen(str)+1);
+  if (!new)
+    goto fail;
   strcpy(new, str);
+fail:
   return new;
 }
 
-static void exit_comm(char **args) {
-  if (argc >1) {
-    int exi = atoi(args[1]);
-    free(args);
-    exit(exi);
+static void exit_comm(shell_ctx *ctx)
+{
+  int exit_code = 0;
+  if (ctx->argc > 1) {
+    exit_code = atoi(ctx->argv[1]);
+    free(ctx->argv);
   }
-  else exit(0);
+  exit(exit_code);
 }
-static void echo_comm(char **args) {
-  printf("%s\n", input+5);
+
+// TODO: support for '-n' argument
+static void echo_comm(shell_ctx *ctx)
+{
+  printf("%s\n", ctx->input+5);
 }
-static void type_comm(char **args) {
+
+static void type_comm(shell_ctx *ctx)
+{
   char finded[1024];
   for (int i = 0; i < sizeof(comms)/sizeof(struct Command); i++) {
-    if (!strcmp(comms[i].name, args[1])) {
-      printf("%s is a shell builtin\n", args[1]);
+    if (!strcmp(comms[i].name, ctx->argv[1])) {
+      printf("%s is a shell builtin\n", ctx->argv[1]);
       return;
     }
   }
-  if (!find_in_path(args[1], finded, 1024)) {
-    printf("%s is %s\n", args[1], finded);
-  } else printf("%s: not found\n", args[1]);
+  if (!find_in_path(ctx->argv[1], finded, 1024))
+    printf("%s is %s\n", ctx->argv[1], finded);
+  else
+    printf("%s: not found\n", ctx->argv[1]);
 }
-static void pwd_comm(char **args) {
+
+static void pwd_comm(shell_ctx *ctx)
+{
   char buf[1024];
   printf("%s\n", getcwd(buf, 1024));
 }
-static void cd_comm(char **args) {
-  if (argc ==1) {
+
+static void cd_comm(shell_ctx *ctx)
+{
+  char buf[1024];
+
+  if (ctx->argc == 1) {
     chdir(getenv("HOME"));
     return;
   }
-  char buf[1024];
-  if (args[1][0] == '~') {
-    snprintf(buf, 1024, "%s%s", getenv("HOME"), args[1]+1);
-  } else {
-    strcpy(buf, args[1]);
-  }
-  if (chdir(buf)) {
-    printf("%s: No such file or directory\n", args[1]);
-  }
+
+  if (ctx->argv[1][0] == '~')
+    snprintf(buf, 1024, "%s%s", getenv("HOME"), ctx->argv[1]+1);
+  else
+    strcpy(buf, ctx->argv[1]);
+
+  if (chdir(buf))
+    printf("%s: No such file or directory\n", ctx->argv[1]);
 }
 
-static int exec_builtins(char **args) {
+static int exec_builtins(shell_ctx* ctx)
+{
   for (int i = 0; i < sizeof(comms)/sizeof(struct Command); i++) {
-    if (!strcmp(args[0], comms[i].name)) {
-      comms[i].func(args);
+    if (!strcmp(ctx->argv[0], comms[i].name)) {
+      comms[i].func(ctx);
       return 0;
     }
   }
   return 1;
 }
 
-static int try_exec_ext(char **args) {
-  if (exec_builtins(args) == 0) return 0;
+static int try_exec_ext(shell_ctx *ctx)
+{
   char buf[1024] = {0};
-  if (!find_in_path(args[0], NULL, 0)) {
-    pid_t pid = fork();
-    if (pid == 0) { // child
-      find_in_path(args[0], buf, 1024);
-      if (execvp(buf, args) == -1); // error occured
-    } else if (pid > 0) { // parent
-      waitpid(pid, &last_status, 0);
-    }
+  pid_t pid = 0;
+
+  if (exec_builtins(ctx) == 0)
     return 0;
+  if (find_in_path(ctx->argv[0], NULL, 0))
+    return 1;
+
+  pid = fork();
+
+  if (pid == 0) { // child
+    find_in_path(ctx->argv[0], buf, 1024);
+    execvp(buf, ctx->argv);
+  } else if (pid > 0) { // parent
+    waitpid(pid, &ctx->last_status, 0);
   }
-  return 1;
+
+  return 0;
 }
 
-static char **parse_args(int *size) {
-  char *inp = (char*)strdup_(input);
+/**
+ * Returns pointer to argv
+ */
+static char **parse_args(shell_ctx *ctx)
+{
+  char *inp = (char*)strdup_(ctx->input);
   char **args = malloc(32 * sizeof(char *));
   char *arg = strtok(inp, " ");
   int idx = 0;
+
   while (arg != NULL) {
     args[idx++] = arg;
     arg = strtok(NULL, " ");
   }
-  if (size != NULL) {
-    *size = idx;
-  }
+  ctx->argc = idx;
+
   return args;
 }
 
-static int find_in_path(const char *needle, char *out, size_t n) {
+static int find_in_path(const char *needle, char *out, size_t n)
+{
   char path_to_check[1024] = {0};
   char *path = (char*)strdup_(getenv("PATH"));
-  if (path != NULL) {
-    char *dir = strtok(path, ":");
-    while (dir != NULL) {
-      snprintf(path_to_check, 1024, "%s/%s", dir, needle);
-      if (access(path_to_check, X_OK) == 0) {
-        free(path);
-        if (out != NULL) {
-          int need_size = strlen(path_to_check);
-          if (need_size < n) {
-            strcpy(out, path_to_check);
-            return 0;
-          }
-          return need_size;
+  char *dir = NULL;
+  int need_size = 0;
+
+  if (!path)
+    goto error;
+
+  dir = strtok(path, ":");
+  while (dir != NULL) {
+    snprintf(path_to_check, 1024, "%s/%s", dir, needle);
+    if (access(path_to_check, X_OK) == 0) {
+      free(path);
+      if (out != NULL) {
+        need_size = strlen(path_to_check);
+        if (need_size < n) {
+          strcpy(out, path_to_check);
+          return 0;
         }
-        return 0;
+        return need_size;
       }
-      dir = strtok(NULL, ":");
+      return 0;
     }
-    free(path);
+    dir = strtok(NULL, ":");
   }
+  free(path);
+
+error:
   return -1;
 }
+
