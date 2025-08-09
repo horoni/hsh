@@ -63,24 +63,30 @@ struct Command comms[] = {
 int main(void)
 {
   shell_ctx ctx;
-  // Flush after every printf
+  memset(&ctx, 0, sizeof(ctx));
+
   setbuf(stdout, NULL);
 
   while(1) {
     printf("$ ");
-    fgets(ctx.input, 1024, stdin);
+    if (!fgets(ctx.input, 1024, stdin))
+      goto error;
     ctx.input[strlen(ctx.input)-1] = '\0';
     ctx.argv = parse_args(&ctx);
     if (ctx.argc == 0)
-      continue;
+      goto end_cyc;
     if (try_exec_ext(&ctx))
       printf("%s: command not found\n", ctx.input);
+  end_cyc:
     free(ctx.argv);
   }
   return 0;
+error:
+  (void)puts("fgets: error reading from stdin...\n");
+  return 1;
 }
 
-char *strdup_(char *str)
+static char *strdup_(const char *str)
 {
   char *new = NULL;
 
@@ -97,10 +103,9 @@ fail:
 static void exit_comm(shell_ctx *ctx)
 {
   int exit_code = 0;
-  if (ctx->argc > 1) {
+  if (ctx->argc > 1)
     exit_code = atoi(ctx->argv[1]);
-    free(ctx->argv);
-  }
+  free(ctx->argv);
   exit(exit_code);
 }
 
@@ -192,12 +197,15 @@ static char **parse_args(shell_ctx *ctx)
   char *arg = strtok(inp, " ");
   int idx = 0;
 
+  if (!args)
+    goto end;
+
   while (arg != NULL) {
     args[idx++] = arg;
     arg = strtok(NULL, " ");
   }
   ctx->argc = idx;
-
+end:
   return args;
 }
 
