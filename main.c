@@ -160,14 +160,20 @@ static void pwd_comm(shell_ctx *ctx)
 static void cd_comm(shell_ctx *ctx)
 {
   char buf[BUFFER_SIZE];
+  char *path_env = getenv("HOME");
+
+  if (!path_env) {
+    ctx->last_status = 1;
+    return;
+  }
 
   if (ctx->argc == 1) {
-    chdir(getenv("HOME"));
+    chdir(path_env);
     return;
   }
 
   if (ctx->argv[1][0] == '~')
-    snprintf(buf, sizeof(buf), "%s%s", getenv("HOME"), ctx->argv[1]+1);
+    snprintf(buf, sizeof(buf), "%s%s", path_env, ctx->argv[1]+1);
   else
     strcpy(buf, ctx->argv[1]);
 
