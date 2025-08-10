@@ -117,7 +117,9 @@ static void exit_comm(shell_ctx *ctx)
 // TODO: support for '-n' argument
 static void echo_comm(shell_ctx *ctx)
 {
-  printf("%s\n", ctx->input+5);
+  for (int i = 1; i < ctx->argc; i++)
+    printf("%s ", ctx->argv[i]);
+  putchar('\n');
 }
 
 static void type_comm(shell_ctx *ctx)
