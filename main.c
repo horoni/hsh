@@ -90,7 +90,8 @@ error:
   return 1;
 }
 
-static void free_argv(shell_ctx *ctx) {
+static void free_argv(shell_ctx *ctx)
+{
   if (ctx)
     free(ctx->argv);
 }
@@ -129,12 +130,17 @@ static void echo_comm(shell_ctx *ctx)
 static void type_comm(shell_ctx *ctx)
 {
   char finded[BUFFER_SIZE];
+
+  if (ctx->argc < 2)
+    return;
+
   for (int i = 0; i < sizeof(comms)/sizeof(struct Command); i++) {
     if (!strcmp(comms[i].name, ctx->argv[1])) {
       printf("%s is a shell builtin\n", ctx->argv[1]);
       return;
     }
   }
+
   if (!find_in_path(ctx->argv[1], finded, sizeof(finded)))
     printf("%s is %s\n", ctx->argv[1], finded);
   else
