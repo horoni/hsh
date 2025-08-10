@@ -91,8 +91,8 @@ error:
 }
 
 static void free_argv(shell_ctx *ctx) {
-  free(ctx->argv[ARGS_SIZE-1]);
-  free(ctx->argv);
+  if (ctx)
+    free(ctx->argv);
 }
 
 static char *strdup_(const char *str)
@@ -199,28 +199,26 @@ static int try_exec_ext(shell_ctx *ctx)
 }
 
 /**
+ * Modifies ctx->input
  * If success returns pointer to argv
  */
 static char **parse_args(shell_ctx *ctx)
 {
-  char *inp = (char*)strdup_(ctx->input);
   char **args = malloc(ARGS_SIZE * sizeof(char *));
-  char *arg = strtok(inp, " ");
+  char *arg = strtok(ctx->input, " ");
   int idx = 0;
 
   if (!args)
     goto end;
   memset(args, 0, ARGS_SIZE * sizeof(char *));
 
-  while (arg != NULL && idx < ARGS_SIZE-1) {
+  while (arg != NULL && idx < ARGS_SIZE) {
     args[idx++] = arg;
     arg = strtok(NULL, " ");
   }
 
   ctx->argc = idx;
   ctx->argv = args;
-  args[ARGS_SIZE-1] = inp;
-
 end:
   return args;
 }
