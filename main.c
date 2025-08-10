@@ -28,10 +28,14 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
+/* But in fact its 1 less */
+#define ARGS_SIZE 32
+#define BUFFER_SIZE 1024
+
 typedef struct {
   char **argv;
   int    argc;
-  char   input[1024];
+  char   input[BUFFER_SIZE];
   int    last_status;
 } shell_ctx;
 
@@ -69,7 +73,7 @@ int main(void)
 
   while(1) {
     printf("$ ");
-    if (!fgets(ctx.input, 1024, stdin))
+    if (!fgets(ctx.input, sizeof(ctx.input), stdin))
       goto error;
     ctx.input[strlen(ctx.input)-1] = '\0';
     parse_args(&ctx);
@@ -87,7 +91,7 @@ error:
 }
 
 static void free_argv(shell_ctx *ctx) {
-  free(ctx->argv[31]);
+  free(ctx->argv[ARGS_SIZE-1]);
   free(ctx->argv);
 }
 
@@ -124,14 +128,14 @@ static void echo_comm(shell_ctx *ctx)
 
 static void type_comm(shell_ctx *ctx)
 {
-  char finded[1024];
+  char finded[BUFFER_SIZE];
   for (int i = 0; i < sizeof(comms)/sizeof(struct Command); i++) {
     if (!strcmp(comms[i].name, ctx->argv[1])) {
       printf("%s is a shell builtin\n", ctx->argv[1]);
       return;
     }
   }
-  if (!find_in_path(ctx->argv[1], finded, 1024))
+  if (!find_in_path(ctx->argv[1], finded, sizeof(finded)))
     printf("%s is %s\n", ctx->argv[1], finded);
   else
     printf("%s: not found\n", ctx->argv[1]);
@@ -139,13 +143,13 @@ static void type_comm(shell_ctx *ctx)
 
 static void pwd_comm(shell_ctx *ctx)
 {
-  char buf[1024];
-  printf("%s\n", getcwd(buf, 1024));
+  char buf[BUFFER_SIZE];
+  printf("%s\n", getcwd(buf, sizeof(buf)));
 }
 
 static void cd_comm(shell_ctx *ctx)
 {
-  char buf[1024];
+  char buf[BUFFER_SIZE];
 
   if (ctx->argc == 1) {
     chdir(getenv("HOME"));
@@ -153,7 +157,7 @@ static void cd_comm(shell_ctx *ctx)
   }
 
   if (ctx->argv[1][0] == '~')
-    snprintf(buf, 1024, "%s%s", getenv("HOME"), ctx->argv[1]+1);
+    snprintf(buf, sizeof(buf), "%s%s", getenv("HOME"), ctx->argv[1]+1);
   else
     strcpy(buf, ctx->argv[1]);
 
@@ -174,7 +178,7 @@ static int exec_builtins(shell_ctx* ctx)
 
 static int try_exec_ext(shell_ctx *ctx)
 {
-  char buf[1024] = {0};
+  char buf[BUFFER_SIZE] = {0};
   pid_t pid = 0;
 
   if (exec_builtins(ctx) == 0)
@@ -185,7 +189,7 @@ static int try_exec_ext(shell_ctx *ctx)
   pid = fork();
 
   if (pid == 0) { // child
-    find_in_path(ctx->argv[0], buf, 1024);
+    find_in_path(ctx->argv[0], buf, sizeof(buf));
     execvp(buf, ctx->argv);
   } else if (pid > 0) { // parent
     waitpid(pid, &ctx->last_status, 0);
@@ -200,22 +204,22 @@ static int try_exec_ext(shell_ctx *ctx)
 static char **parse_args(shell_ctx *ctx)
 {
   char *inp = (char*)strdup_(ctx->input);
-  char **args = malloc(32 * sizeof(char *));
+  char **args = malloc(ARGS_SIZE * sizeof(char *));
   char *arg = strtok(inp, " ");
   int idx = 0;
 
   if (!args)
     goto end;
-  memset(args, 0, 32 * sizeof(char *));
+  memset(args, 0, ARGS_SIZE * sizeof(char *));
 
-  while (arg != NULL && idx < 31) {
+  while (arg != NULL && idx < ARGS_SIZE-1) {
     args[idx++] = arg;
     arg = strtok(NULL, " ");
   }
 
   ctx->argc = idx;
   ctx->argv = args;
-  args[31] = inp;
+  args[ARGS_SIZE-1] = inp;
 
 end:
   return args;
@@ -223,7 +227,7 @@ end:
 
 static int find_in_path(const char *needle, char *out, size_t n)
 {
-  char path_to_check[1024] = {0};
+  char path_to_check[BUFFER_SIZE] = {0};
   char *path = (char*)strdup_(getenv("PATH"));
   const char *dir = NULL;
   int need_size = 0;
@@ -233,7 +237,7 @@ static int find_in_path(const char *needle, char *out, size_t n)
 
   dir = strtok(path, ":");
   while (dir != NULL) {
-    snprintf(path_to_check, 1024, "%s/%s", dir, needle);
+    snprintf(path_to_check, sizeof(path_to_check), "%s/%s", dir, needle);
     if (access(path_to_check, X_OK) == 0) {
       free(path);
       if (out != NULL) {
