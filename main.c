@@ -206,6 +206,7 @@ static char **parse_args(shell_ctx *ctx)
 
   if (!args)
     goto end;
+  memset(args, 0, 32 * sizeof(char *));
 
   while (arg != NULL && idx < 31) {
     args[idx++] = arg;
