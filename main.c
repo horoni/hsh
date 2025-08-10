@@ -72,11 +72,11 @@ int main(void)
     if (!fgets(ctx.input, 1024, stdin))
       goto error;
     ctx.input[strlen(ctx.input)-1] = '\0';
-    ctx.argv = parse_args(&ctx);
-    if (ctx.argc == 0)
+    parse_args(&ctx);
+    if (ctx.argc < 1)
       goto end_cyc;
     if (try_exec_ext(&ctx))
-      printf("%s: command not found\n", ctx.input);
+      printf("%s: command not found\n", ctx.argv[0]);
   end_cyc:
     free_argv(&ctx);
   }
