@@ -93,7 +93,11 @@ error:
 static void free_argv(shell_ctx *ctx)
 {
   if (ctx)
-    free(ctx->argv);
+    if (ctx->argv)
+      free(ctx->argv);
+
+  ctx->argv = NULL;
+  ctx->argc = 0;
 }
 
 static char *strdup_(const char *str)
