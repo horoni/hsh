@@ -233,36 +233,36 @@ end:
   return args;
 }
 
+/**
+ * Searching for needle in PATH and writes to out if not NULL
+ * Returns 0 - success; -1 - fail; > 0 - small buffer;
+ */
 static int find_in_path(const char *needle, char *out, size_t n)
 {
-  char path_to_check[BUFFER_SIZE] = {0};
-  char *path = (char*)strdup_(getenv("PATH"));
+  char buf[BUFFER_SIZE] = {0};
   const char *dir = NULL;
-  int need_size = 0;
+  char *path_env = strdup_(getenv("PATH"));
+  int ret = -1;
 
-  if (!path)
-    goto error;
-
-  dir = strtok(path, ":");
-  while (dir != NULL) {
-    snprintf(path_to_check, sizeof(path_to_check), "%s/%s", dir, needle);
-    if (access(path_to_check, X_OK) == 0) {
-      free(path);
-      if (out != NULL) {
-        need_size = strlen(path_to_check);
-        if (need_size < n) {
-          strcpy(out, path_to_check);
-          return 0;
-        }
-        return need_size;
-      }
-      return 0;
+  if (!path_env)
+    goto end;
+ 
+  dir = strtok(path_env, ":");
+  while (dir) {
+    snprintf(buf, sizeof(buf), "%s/%s", dir, needle);
+    if (access(buf, X_OK) == 0) {
+      ret = 0;
+      if (!out)
+        break;
+      if ((ret = strlen(buf)) >= n)
+        break;
+      strcpy(out, buf);
+      ret = 0; break;
     }
     dir = strtok(NULL, ":");
   }
-  free(path);
-
-error:
-  return -1;
+  free(path_env);
+end:
+  return ret;
 }
 
