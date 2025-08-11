@@ -257,10 +257,7 @@ static int find_in_path(const char *needle, char *out, size_t n)
   while (dir) {
     snprintf(buf, sizeof(buf), "%s/%s", dir, needle);
     if (access(buf, X_OK) == 0) {
-      ret = 0;
-      if (!out)
-        break;
-      if ((ret = strlen(buf)) >= n)
+      if (!out || (ret = strlen(buf)) >= n)
         break;
       strcpy(out, buf);
       ret = 0; break;
