@@ -39,4 +39,5 @@ clean:
 	@$(RMDIR) $(OBJ_DIR)
 
 valgrind: $(PROJECT)
-	@valgrind --leak-check=yes ./$(PROJECT)
+	@valgrind ./$(PROJECT)
+
