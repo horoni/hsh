@@ -10,14 +10,19 @@ CC       := gcc
 WARNINGS := -Wall -Wextra -Wpedantic
 CFLAGS   := $(WARNINGS) -std=c99
 
-ifdef DEBUG
-	CFLAGS += -g
+ifeq ($(MSAN),1)
+$(info [SAN] MSan enabled)
+CFLAGS  += -g -fPIE -fsanitize=memory -fno-omit-frame-pointer
+LDFLAGS += -fPIE -pie -fsanitize=memory
+else ifeq ($(ASAN),1)
+$(info [SAN] ASan enabled)
+CFLAGS  += -g -fsanitize=address,undefined,leak -fno-omit-frame-pointer
+LDFLAGS += -fsanitize=address,undefined,leak
 endif
 
 RM    := rm -f
 RMF   := rm -rf
 RMDIR := rmdir
-
 
 all: run
 
