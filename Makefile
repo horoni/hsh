@@ -1,12 +1,14 @@
 PHONY   := all run clean valgrind
 PROJECT := hsh
 
-SRC_FILES := $(wildcard *.c)
-
+SRC_DIR   := ./
 OBJ_DIR   := obj
-OBJ_FILES := $(addprefix $(OBJ_DIR)/,$(notdir $(SRC_FILES:.c=.o)))
+
+SRCS := $(shell find $(SRC_DIR) -name '*.c' -or -name '*.s')
+OBJS := $(SRCS:%=$(OBJ_DIR)/%.o)
 
 CC       := gcc
+AS 			 := as
 WARNINGS := -Wall -Wextra -Wpedantic
 CFLAGS   := $(WARNINGS) -std=c99
 
@@ -29,19 +31,24 @@ all: run
 run: $(PROJECT)
 	@./$(PROJECT)
 
-$(PROJECT): $(OBJ_FILES)
-	@$(CC) $^ -o $@
+$(PROJECT): $(OBJS)
+	@$(CC) $(OBJS) -o $@ $(LDFLAGS)
 
-$(OBJ_DIR)/%.o: %.c | $(OBJ_DIR)
+$(OBJ_DIR)/%.c.o: %.c | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
 	@echo [CC] $@
-	@$(CC) $^ $(CFLAGS) -c -o $@
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/%.s.o: %.s | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	@echo [AS] $@
+	@$(AS) -c $< -o $@
 
 $(OBJ_DIR):
 	@mkdir -p $@
 
 clean:
-	@$(RM) $(OBJ_DIR)/*.o $(PROJECT)
-	@$(RMDIR) $(OBJ_DIR)
+	@$(RMF) $(OBJ_DIR) $(PROJECT)
 
 valgrind: $(PROJECT)
 	@valgrind ./$(PROJECT)
