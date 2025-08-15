@@ -250,21 +250,25 @@ static int find_in_path(const char *needle, char *out, size_t n)
   int ret = -1;
 
   if (!path_env)
-    goto end;
+    goto error;
  
   dir = strtok(path_env, ":");
   while (dir) {
     snprintf(buf, sizeof(buf), "%s/%s", dir, needle);
     if (access(buf, X_OK) == 0) {
-      if (!out || (ret = strlen(buf)) >= n)
+      if (!out)
         break;
+      if ((ret = strlen(buf)) >= n)
+        goto error;
       strcpy(out, buf);
-      ret = 0; break;
+      break;
     }
     dir = strtok(NULL, ":");
   }
-  free(path_env);
-end:
+  ret = 0;
+error:
+  if (path_env)
+    free(path_env);
   return ret;
 }
 
