@@ -122,12 +122,22 @@ static void exit_comm(shell_ctx *ctx)
   exit(exit_code);
 }
 
-// TODO: support for '-n' argument
 static void echo_comm(shell_ctx *ctx)
 {
-  for (int i = 1; i < ctx->argc; i++)
-    printf("%s ", ctx->argv[i]);
-  putchar('\n');
+  int newline = 1, i = 1;
+
+  if (ctx->argc > 1 && strcmp(ctx->argv[1], "-n") == 0) {
+    newline = 0;
+    i = 2;
+  }
+
+  for (; i < ctx->argc; i++) {
+    printf("%s", ctx->argv[i]);
+    if (i < ctx->argc-1)
+      putchar(' ');
+  }
+  if (newline)
+    putchar('\n');
 }
 
 static void type_comm(shell_ctx *ctx)
