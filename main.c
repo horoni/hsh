@@ -28,7 +28,6 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
-/* But in fact its 1 less */
 #define ARGS_SIZE 32
 #define BUFFER_SIZE 1024
 
