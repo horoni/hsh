@@ -274,6 +274,8 @@ static int find_in_path(const char *needle, char *out, size_t n)
       break;
     }
     dir = strtok(NULL, ":");
+    if (!dir)
+      goto error;
   }
   ret = 0;
 error:
