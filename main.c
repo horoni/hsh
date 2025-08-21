@@ -44,9 +44,8 @@ struct Command {
 };
 
 static void   free_argv    (shell_ctx *);
-
 static int    find_in_path (const char *needle, char *out, size_t n);
-static char **parse_args   (shell_ctx *);
+static void   parse_args   (shell_ctx *);
 static int    exec_builtins(shell_ctx *);
 static int    try_exec_ext (shell_ctx *);
 static void   exit_comm    (shell_ctx *);
@@ -88,17 +87,14 @@ int main(void)
     free_argv(&ctx);
   }
   return 0;
-error:
-  (void)puts("fgets: error reading from stdin...\n");
-  return 1;
 }
 
 static void free_argv(shell_ctx *ctx)
 {
-  if (ctx)
-    if (ctx->argv)
-      free(ctx->argv);
-
+  if (!ctx)
+    return;
+  if (ctx->argv)
+    free(ctx->argv);
   ctx->argv = NULL;
   ctx->argc = 0;
 }
@@ -231,14 +227,14 @@ static int try_exec_ext(shell_ctx *ctx)
  * Modifies ctx->input
  * If success returns pointer to argv
  */
-static char **parse_args(shell_ctx *ctx)
+static void parse_args(shell_ctx *ctx)
 {
   char **args = malloc(ARGS_SIZE * sizeof(char *));
   char *arg = strtok(ctx->input, " ");
   int idx = 0;
 
   if (!args)
-    goto end;
+    return;
   memset(args, 0, ARGS_SIZE * sizeof(char *));
 
   while (arg != NULL && idx < ARGS_SIZE) {
@@ -248,8 +244,6 @@ static char **parse_args(shell_ctx *ctx)
 
   ctx->argc = idx;
   ctx->argv = args;
-end:
-  return args;
 }
 
 /**
