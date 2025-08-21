@@ -134,10 +134,10 @@ static void echo_comm(shell_ctx *ctx)
   for (; i < ctx->argc; i++) {
     printf("%s", ctx->argv[i]);
     if (i < ctx->argc-1)
-      putchar(' ');
+      (void)putchar(' ');
   }
   if (newline)
-    putchar('\n');
+    (void)putchar('\n');
 }
 
 static void type_comm(shell_ctx *ctx)
