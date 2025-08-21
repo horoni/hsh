@@ -66,15 +66,19 @@ struct Command comms[] = {
 int main(void)
 {
   shell_ctx ctx;
-  memset(&ctx, 0, sizeof(ctx));
 
+  memset(&ctx, 0, sizeof(ctx));
   setbuf(stdout, NULL);
 
-  while(1) {
+  for(;;) {
     printf("$ ");
-    if (!fgets(ctx.input, sizeof(ctx.input), stdin))
-      goto error;
+
+    if (!fgets(ctx.input, (int)sizeof(ctx.input), stdin)) {
+      perror("fgets");
+      return 1;
+    }
     ctx.input[strlen(ctx.input)-1] = '\0';
+
     parse_args(&ctx);
     if (ctx.argc < 1)
       goto end_cyc;
